@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teddy Claw Machine 🧸</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Vt323&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #263238;
+            font-family: 'Fredoka One', cursive;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- ARCADE CABINET --- */
+        .machine-container {
+            position: relative;
+            width: 380px;
+            height: 640px;
+            background: #e91e63;
+            border-radius: 15px 15px 0 0;
+            border: 6px solid #880e4f;
+            box-shadow: 0 0 40px rgba(233,30,99,0.4);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Marquee Header */
+        .marquee {
+            height: 50px;
+            background: #f48fb1;
+            border-bottom: 5px solid #880e4f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 -2px 5px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+        .marquee h1 {
+            font-family: 'Vt323', monospace;
+            font-size: 28px;
+            color: #880e4f;
+            margin: 0;
+            letter-spacing: 2px;
+        }
+
+        /* Glass Game Area */
+        .glass-area {
+            position: relative;
+            flex: 1; /* Takes up remaining space */
+            background: radial-gradient(circle at center, #81d4fa 0%, #4fc3f7 100%);
+            border-left: 10px solid rgba(0,0,0,0.1);
+            border-right: 10px solid rgba(0,0,0,0.1);
+            overflow: hidden;
+            box-shadow: inset 10px 10px 30px rgba(255,255,255,0.2);
+        }
+
+        /* --- THE CLAW --- */
+        .claw-rod {
+            position: absolute;
+            top: 0;
+            left: 50px;
+            width: 6px;
+            height: 40px;
+            background: #424242;
+            z-index: 10;
+            transition: left 0.3s ease, height 1s ease;
+        }
+        
+        .claw-body {
+            position: absolute;
+            bottom: -25px;
+            left: -17px;
+            width: 40px;
+            height: 30px;
+            background: #9e9e9e;
+            border-radius: 5px;
+            z-index: 2;
+        }
+
+        .finger {
+            position: absolute;
+            top: 20px;
+            width: 40px;
+            height: 35px;
+            fill: none;
+            stroke: #616161;
+            stroke-width: 4px;
+            stroke-linecap: round;
+            transition: transform 0.5s;
+        }
+        .finger.left { left: -12px; transform: rotate(20deg); }
+        .finger.right { right: -12px; transform: scaleX(-1) rotate(20deg); }
+
+        .grabbing .finger.left { transform: rotate(-15deg); }
+        .grabbing .finger.right { transform: scaleX(-1) rotate(-15deg); }
+
+        /* --- THE TOYS --- */
+        .toys-row {
+            position: absolute;
+            bottom: 15px;
+            width: 100%;
+            height: 70px;
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+
+        .toy {
+            width: 55px;
+            height: 55px;
+            object-fit: contain;
+            filter: drop-shadow(0 5px 5px rgba(0,0,0,0.3));
+            transition: all 0.5s;
+            position: relative;
+            z-index: 1;
+        }
+        .toy.selected { z-index: 10; }
+
+        /* --- CONTROLS (FIXED LAYOUT) --- */
+        .controls-area {
+            height: 140px;
+            background: #c2185b;
+            border-top: 5px solid #880e4f;
+            display: flex;
+            align-items: center;
+            justify-content: space-around; /* Distribute items evenly */
+            padding: 0 10px;
+        }
+
+        /* 1. The Chute (No longer absolute) */
+        .chute {
+            position: relative; /* Fixed: part of flow */
+            width: 60px; height: 50px; background: #212121;
+            border: 2px solid #424242; border-radius: 5px; text-align: center;
+            margin-right: 10px;
+        }
+        .chute::after { content: 'PUSH'; color: #616161; font-size: 10px; line-height: 50px; }
+
+        /* 2. D-Pad */
+        .d-pad { display: flex; gap: 10px; }
+        .arrow-btn {
+            width: 50px; height: 50px; background: #f06292;
+            border: 0; border-bottom: 4px solid #880e4f; border-radius: 10px;
+            color: white; font-size: 28px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .arrow-btn:active { transform: translateY(2px); border-bottom: 2px solid #880e4f; }
+
+        /* 3. Grab Button */
+        .action-btn {
+            width: 80px; height: 80px;
+            background: radial-gradient(#ff1744, #d50000);
+            border: 4px solid #b71c1c; border-radius: 50%;
+            color: white; font-weight: bold; font-family: 'Fredoka One', cursive;
+            cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-size: 16px;
+            margin-left: 10px;
+        }
+        .action-btn:active { transform: scale(0.95); }
+
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            z-index: 100;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+
+        .modal-content {
+            background: white; padding: 30px; border-radius: 20px;
+            text-align: center; max-width: 300px;
+            transform: scale(0.8); transition: transform 0.3s;
+            border: 6px solid #e91e63;
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+
+        .modal-img { width: 130px; margin-bottom: 15px; }
+        .modal-btn {
+            margin-top: 20px; background: #e91e63; color: white;
+            border: none; padding: 12px 25px; border-radius: 30px;
+            cursor: pointer; font-family: 'Fredoka One', cursive; font-size: 16px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="machine-container">
+        <div class="marquee">
+            <h1>❤️ TEDDY CATCHER ❤️</h1>
+        </div>
+
+        <div class="glass-area">
+            <div class="claw-rod" id="claw">
+                <div class="claw-body">
+                    <svg class="finger left" viewBox="0 0 50 50"><path d="M40,0 Q10,20 20,50" /></svg>
+                    <svg class="finger right" viewBox="0 0 50 50"><path d="M40,0 Q10,20 20,50" /></svg>
+                </div>
+            </div>
+
+            <div class="toys-row" id="toys-row">
+                </div>
+        </div>
+
+        <div class="controls-area">
+            <div class="chute"></div>
+            
+            <div class="d-pad">
+                <button class="arrow-btn" onclick="moveClaw(-1)">⬅️</button>
+                <button class="arrow-btn" onclick="moveClaw(1)">➡️</button>
+            </div>
+
+            <button class="action-btn" onclick="grabToy()">GRAB!</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <img src="" id="modal-img" class="modal-img">
+            <h2 id="modal-title" style="color:#c2185b; margin:0;">Title</h2>
+            <p id="modal-text" style="color:#555; font-size: 1.1rem; line-height: 1.5;">Text</p>
+            <button class="modal-btn" onclick="closeModal()">Collect & Play Again</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        // --- 6 CUTE 3D TOYS ---
+        const toysData = [
+            { 
+                id: 'bear', 
+                img: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Bear.png', 
+                title: "Teddy Bear! 🐻", 
+                msg: "A warm bear hug just for you!" 
+            },
+            { 
+                id: 'panda', 
+                img: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Panda.png', 
+                title: "Panda Pal! 🐼", 
+                msg: "You are un-bear-ably cute!" 
+            },
+            { 
+                id: 'koala', 
+                img: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Koala.png', 
+                title: "Koala Cuggles! 🐨", 
+                msg: "I want to cling to you like a Koala!" 
+            },
+            { 
+                id: 'bunny', 
+                img: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Rabbit%20Face.png', 
+                title: "Cute Bunny! 🐰", 
+                msg: "Some-bunny loves you very much! (It's me!)" 
+            },
+            { 
+                id: 'cat', 
+                img: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Cat%20Face.png', 
+                title: "Soft Kitty! 🐱", 
+                msg: "You are absolutely purr-fect!" 
+            },
+            { 
+                id: 'fox', 
+                img: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Fox.png', 
+                title: "Foxy Love! 🦊", 
+                msg: "You've captured my heart, you clever fox!" 
+            }
+        ];
+
+        // --- SETUP ---
+        const claw = document.getElementById('claw');
+        const toysRow = document.getElementById('toys-row');
+        const modal = document.getElementById('modal');
+        
+        // Render Toys
+        toysData.forEach((toy, index) => {
+            const img = document.createElement('img');
+            img.src = toy.img;
+            img.classList.add('toy');
+            img.id = `toy-${index}`;
+            toysRow.appendChild(img);
+        });
+
+        // State
+        let currentIndex = 0; 
+        let isBusy = false;
+        
+        // Positions for 6 items
+        const positions = [9, 25, 42, 58, 75, 91];
+
+        function setClawPos(index) {
+            claw.style.left = positions[index] + '%';
+        }
+        setClawPos(currentIndex);
+
+        // --- GAME LOGIC ---
+        function moveClaw(dir) {
+            if (isBusy) return;
+            const newIndex = currentIndex + dir;
+            if (newIndex >= 0 && newIndex < positions.length) {
+                currentIndex = newIndex;
+                setClawPos(currentIndex);
+            }
+        }
+
+        async function grabToy() {
+            if (isBusy) return;
+            isBusy = true;
+
+            const selectedToy = document.getElementById(`toy-${currentIndex}`);
+            const toyData = toysData[currentIndex];
+
+            // 1. Drop (FIXED HEIGHT)
+            // Reduced from 510px to 400px so it stops AT the toy, not below floor.
+            claw.style.height = "400px"; 
+            await wait(1000);
+
+            // 2. Grab
+            claw.classList.add('grabbing');
+            await wait(500);
+
+            // 3. Lift
+            claw.style.height = "40px";
+            selectedToy.classList.add('selected');
+            
+            // Visual lift logic
+            const rect = selectedToy.getBoundingClientRect();
+            selectedToy.style.position = 'fixed';
+            selectedToy.style.left = rect.left + 'px';
+            selectedToy.style.top = rect.top + 'px';
+            selectedToy.style.width = "55px"; 
+
+            // Force reflow
+            void selectedToy.offsetWidth;
+
+            selectedToy.style.transition = "top 1s ease, left 0.5s ease";
+            selectedToy.style.top = (claw.getBoundingClientRect().top + 40) + "px"; // Align with claw
+
+            await wait(1000);
+
+            // 4. Move to Chute
+            claw.style.left = "30px"; 
+            
+            // Get Chute Position for the toy to travel to
+            const chute = document.querySelector('.chute');
+            const chuteRect = chute.getBoundingClientRect();
+            selectedToy.style.left = (chuteRect.left + 5) + 'px'; // Center in chute
+
+            await wait(600);
+
+            // 5. Drop into Chute
+            claw.classList.remove('grabbing');
+            selectedToy.style.top = (chuteRect.top + 20) + "px"; // Drop into box
+            selectedToy.style.opacity = "0";
+
+            await wait(500);
+
+            // 6. Win
+            showModal(toyData);
+        }
+
+        function showModal(data) {
+            document.getElementById('modal-img').src = data.img;
+            document.getElementById('modal-title').innerText = data.title;
+            document.getElementById('modal-text').innerText = data.msg;
+            fireConfetti();
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            location.reload(); 
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function fireConfetti() {
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        }
+    </script>
+</body>
+</html>
